@@ -1,0 +1,19 @@
+.npc-sider-content {
+  padding-top: 1em !important;
+}
+
+.npc-sidebar-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1rem !important;
+}
+
+.npc-sidebar-link {
+  color: white !important;
+  font-size: 1.125rem !important;
+  text-align: center !important;
+}
+
+.npc-sidebar-link:hover {
+  color: #c084fc !important;
+}

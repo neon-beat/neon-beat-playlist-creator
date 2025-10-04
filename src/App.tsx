@@ -1,37 +1,50 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import { Routes, Route } from 'react-router-dom'
 import useGoogleApi from './Hooks/useGoogleApi'
+import PlaylistList from './Components/PlaylistList'
+import PlaylistViewer from './Components/PlaylistViewer'
+import Sidebar from './Components/Sidebar'
+import MessageContext from './Context/MessageContext'
+import { ConfigProvider, Layout, message, theme } from 'antd'
+import Home from './Components/Home'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   useGoogleApi();
 
+  const { Content, Sider } = Layout;
+  const [messageApi, contextHolder] = message.useMessage();
+
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: '#9E339F',
+          borderRadius: 20,
+        },
+      }}
+    >
+      <MessageContext.Provider value={{ messageApi }}>
+        <Layout className="npc-layout">
+          {contextHolder}
+          <Content className="npc-header flex justify-center">
+            <img src={`${import.meta.env.BASE_URL}/images/logo.png`} width={300} alt="Logo" className="npc-logo" />
+          </Content>
+          <Layout className="npc-main">
+            <Sider className="npc-sider" width={200}>
+              <Sidebar />
+            </Sider>
+            <Content className="npc-content">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/playlists" element={<PlaylistList />} />
+                <Route path="/playlist/:id" element={<PlaylistViewer />} />
+              </Routes>
+            </Content>
+          </Layout>
+        </Layout>
+      </MessageContext.Provider>
+    </ConfigProvider>
   )
 }
 
