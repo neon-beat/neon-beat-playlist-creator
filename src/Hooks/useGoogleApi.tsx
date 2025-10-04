@@ -20,6 +20,7 @@ declare global {
 }
 
 const GOOGLE_API_CLIENT_ID = import.meta.env.VITE_GOOGLE_API_CLIENT_ID;
+const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI;
 // const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 const useGoogleApi = () => {
@@ -39,7 +40,7 @@ const useGoogleApi = () => {
     // Parameters to pass to OAuth 2.0 endpoint.
     const params: { [key: string]: string } = {
       'client_id': GOOGLE_API_CLIENT_ID,
-      'redirect_uri': 'http://localhost:5173', // Change to your redirect URI
+      'redirect_uri': GOOGLE_REDIRECT_URI, // Change to your redirect URI
       'response_type': 'token',
       'scope': 'https://www.googleapis.com/auth/youtube.readonly',
       'include_granted_scopes': 'true',
