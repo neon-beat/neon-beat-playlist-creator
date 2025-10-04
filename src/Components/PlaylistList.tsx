@@ -4,6 +4,7 @@ import { useContext, useEffect, useState } from 'react';
 import MessageContext from '../Context/MessageContext';
 import { Card, Flex, Spin } from 'antd';
 import { FaCheck } from 'react-icons/fa6';
+import './PlaylistList.css';
 
 const PlaylistList = () => {
   const [playlists, setPlaylists] = useState<any[]>([]);
@@ -31,10 +32,10 @@ const PlaylistList = () => {
   }, [isReady]);
 
   return (
-    <Spin spinning={loading === true}>
-      <div className="w-full h-full p-[1em]">
+    <Spin spinning={loading === true} wrapperClassName="spin-wrapper h-full">
+      <Flex vertical className="w-full h-full p-[1em]">
         <h1 className="text-3xl mb-4 text-center">Your Playlists</h1>
-        <Flex gap="middle">
+        <Flex gap="middle" wrap className="overflow-auto">
           {playlists.length === 0 && (
             <p>No playlists found.</p>
           )}
@@ -63,7 +64,7 @@ const PlaylistList = () => {
             </Card>
           ))}
         </Flex>
-      </div>
+      </Flex>
     </Spin>
   );
 };
