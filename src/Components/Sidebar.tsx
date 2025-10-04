@@ -1,11 +1,12 @@
 import './Sidebar.css';
+import { Link } from 'react-router-dom';
 
 const Sidebar = () => {
   return (
     <div className="npc-sider-content">
       <nav className="npc-sidebar-nav">
-        <a href={`${import.meta.env.BASE_URL}/`} className="npc-sidebar-link">Home</a>
-        <a href={`${import.meta.env.BASE_URL}/playlists`} className="npc-sidebar-link">Playlists</a>
+        <Link to="/" className="npc-sidebar-link">Home</Link>
+        <Link to="/playlists" className="npc-sidebar-link">Playlists</Link>
       </nav>
     </div>
   );
