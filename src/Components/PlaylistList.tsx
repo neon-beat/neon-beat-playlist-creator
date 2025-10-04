@@ -49,7 +49,7 @@ const PlaylistList = () => {
                 : ''}
               actions={[
                 <Flex
-                  onClick={() => navigate(`#/playlist/${playlist.id}`)}
+                  onClick={() => navigate(`/playlist/${playlist.id}`)}
                   justify="center"
                   align="center"
                   style={{ width: '100%', cursor: 'pointer' }}
