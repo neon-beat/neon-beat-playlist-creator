@@ -40,8 +40,17 @@ const useGoogleApi = () => {
     console.log("Response", response);
   }
 
+  const checkGoogleApiLoaded = () => {
+    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+      console.log("Google API not loaded yet, retrying...");
+      setTimeout(checkGoogleApiLoaded, 1000); // Retry after 1 second
+    } else {
+      start();
+    }
+  }
+
   useEffect(() => {
-    start();
+    checkGoogleApiLoaded();
   }, []);
 };
 
