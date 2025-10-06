@@ -586,25 +586,26 @@ Keep each field on a separate line. Be concise.`;
             />
           </Flex>
         ) : (
-          <Flex align="center" justify="center" gap="small" className="mb-4">
-            <h1
-              className="text-3xl text-center cursor-pointer hover:text-purple-400"
-              onClick={() => {
-                setEditedPlaylistTitle(playlistTitle);
-                setIsEditingPlaylistTitle(true);
-              }}
-            >
-              {playlistTitle}
-            </h1>
-            <Button
-              type="text"
-              icon={<EditOutlined size={100} />}
-              size="small"
-              onClick={() => {
-                setEditedPlaylistTitle(playlistTitle);
-                setIsEditingPlaylistTitle(true);
-              }}
-            />
+          <Flex align="center" justify="space-between" gap="small" className="mb-4">
+            <Flex align="flex-end" gap="small">
+              <h1
+                className="text-3xl text-center cursor-pointer hover:text-purple-400"
+                onClick={() => {
+                  setEditedPlaylistTitle(playlistTitle);
+                  setIsEditingPlaylistTitle(true);
+                }}
+              >
+                {playlistTitle}
+              </h1>
+              <Button
+                type="text"
+                icon={<EditOutlined className="text-xl" />}
+                onClick={() => {
+                  setEditedPlaylistTitle(playlistTitle);
+                  setIsEditingPlaylistTitle(true);
+                }}
+              />
+            </Flex>
             <Button
               type="primary"
               icon={<DownloadOutlined />}
