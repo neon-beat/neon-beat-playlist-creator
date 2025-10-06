@@ -144,6 +144,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     if (onTimeRangeSelect) {
       onTimeRangeSelect(startTime, endTime);
     }
+
+    // Reset states
+    if (player) {
+      player.pauseVideo();
+      player.seekTo(0, true);
+    }
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setStartTime(initialStartMs);
+    setEndTime(initialEndMs);
   };
 
   const formatTime = (ms: number): string => {
