@@ -7,6 +7,8 @@ import Sidebar from './Components/Sidebar'
 import MessageContext from './Context/MessageContext'
 import { ConfigProvider, Layout, message, theme } from 'antd'
 import Home from './Components/Home'
+import AiSetup from './Components/AiSetup'
+import { AiProvider } from './Context/AiContext'
 
 function App() {
   useGoogleApi();
@@ -24,26 +26,29 @@ function App() {
         },
       }}
     >
-      <MessageContext.Provider value={{ messageApi }}>
-        <Layout className="npc-layout">
-          {contextHolder}
-          <Content className="npc-header flex justify-center">
-            <img src={`${import.meta.env.BASE_URL}/images/logo.png`} width={300} alt="Logo" className="npc-logo" />
-          </Content>
-          <Layout className="npc-main">
-            <Sider className="npc-sider" width={200}>
-              <Sidebar />
-            </Sider>
-            <Content className="npc-content">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/playlists" element={<PlaylistList />} />
-                <Route path="/playlist/:id" element={<PlaylistViewer />} />
-              </Routes>
+      <AiProvider>
+        <MessageContext.Provider value={{ messageApi }}>
+          <Layout className="npc-layout">
+            {contextHolder}
+            <Content className="npc-header flex justify-center">
+              <img src={`${import.meta.env.BASE_URL}/images/logo.png`} width={300} alt="Logo" className="npc-logo" />
             </Content>
+            <Layout className="npc-main">
+              <Sider className="npc-sider" width={200}>
+                <Sidebar />
+              </Sider>
+              <Content className="npc-content overflow-auto">
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/playlists" element={<PlaylistList />} />
+                  <Route path="/playlist/:id" element={<PlaylistViewer />} />
+                  <Route path='/ai' element={<AiSetup />} />
+                </Routes>
+              </Content>
+            </Layout>
           </Layout>
-        </Layout>
-      </MessageContext.Provider>
+        </MessageContext.Provider>
+      </AiProvider>
     </ConfigProvider>
   )
 }

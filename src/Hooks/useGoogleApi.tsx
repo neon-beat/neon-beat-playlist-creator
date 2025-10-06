@@ -125,7 +125,33 @@ const useGoogleApi = () => {
     if (data?.items) {
       items.push(...data.items);
     }
-    return items;
+    const formattedItems = items.map(item => ({
+      id: item.snippet?.resourceId?.videoId,
+      thumbnail: item.snippet.thumbnails?.default?.url || '',
+      fields: {
+        title: {
+          type: "text",
+          value: item.snippet.title,
+          label: 'Title',
+          bonus: false,
+        },
+        artist: {
+          type: "text",
+          value: item.snippet.videoOwnerChannelTitle || 'Unknown Artist',
+          label: 'Artist',
+          bonus: false,
+        },
+        releaseYear: {
+          type: "year",
+          value: new Date(item.snippet.publishedAt).getFullYear(),
+          label: 'Release year',
+          bonus: false,
+        },
+      },
+      startTimeMs: 0,
+      endTimeMs: 30000,
+    }));
+    return formattedItems;
   };
 
   useEffect(() => {

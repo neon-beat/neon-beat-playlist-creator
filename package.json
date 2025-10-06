@@ -13,6 +13,7 @@
     "@tailwindcss/vite": "^4.1.14",
     "@types/gapi": "^0.0.47",
     "antd": "^5.27.4",
+    "openai": "^6.1.0",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "react": "^19.1.1",
