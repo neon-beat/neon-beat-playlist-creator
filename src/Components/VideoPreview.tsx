@@ -155,7 +155,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   return (
-    <Card style={{ width: '100%', maxWidth: '800px' }}>
+    <Card style={{ width: '100%' }}>
       <Flex vertical gap="large">
         <Title level={4}>Video Preview & Time Range Selection</Title>
 

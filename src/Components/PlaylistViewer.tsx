@@ -419,26 +419,17 @@ Keep each field on a separate line. Be concise.`;
   };
 
   const handleDeleteField = (itemId: string, fieldKey: string, fieldLabel: string) => {
-    Modal.confirm({
-      title: 'Delete Field',
-      content: `Are you sure you want to delete the field "${fieldLabel}"?`,
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: () => {
-        setItems(items.map(item => {
-          if (item.id === itemId && item.fields) {
-            const { [fieldKey]: _, ...remainingFields } = item.fields;
-            return {
-              ...item,
-              fields: remainingFields
-            };
-          }
-          return item;
-        }));
-        messageApi.success('Field deleted successfully!');
+    setItems(items.map(item => {
+      if (item.id === itemId && item.fields) {
+        const { [fieldKey]: _, ...remainingFields } = item.fields;
+        return {
+          ...item,
+          fields: remainingFields
+        };
       }
-    });
+      return item;
+    }));
+    messageApi.success(`Field "${fieldLabel}" deleted successfully!`);
   };
 
   const renderFieldDisplay = (item: any, fieldKey: string, field: any) => {
