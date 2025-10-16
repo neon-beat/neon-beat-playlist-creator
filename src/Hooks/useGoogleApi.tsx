@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface GoogleAccounts {
   oauth2: {
@@ -27,6 +28,8 @@ const useGoogleApi = () => {
 
   const [accessToken, setAccessToken] = useState<string | undefined>(); // State to hold the access token
   const [tokenExpiry, setTokenExpiry] = useState<number | undefined>(); // State to hold token expiry time
+
+  const navigate = useNavigate();
 
   const oauthSignIn = () => {
     // Google's OAuth 2.0 endpoint for requesting an access token
@@ -62,12 +65,17 @@ const useGoogleApi = () => {
   }
 
   const checkTokenValidity = () => {
+    if (!accessToken || !tokenExpiry) {
+      navigate('/#/');
+      return false;
+    }
     if (tokenExpiry && Date.now() > tokenExpiry) {
       // Token has expired
       setAccessToken(undefined);
       setTokenExpiry(undefined);
       localStorage.removeItem('access_token');
       localStorage.removeItem('token_expiry');
+      navigate('/');
       return false;
     } else {
       return true;
