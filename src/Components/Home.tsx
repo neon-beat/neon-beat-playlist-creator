@@ -17,7 +17,7 @@ const Home: React.FC = () => {
         height: '100%',
         padding: '20px'
       }}>
-        <Card style={{ maxWidth: 500, textAlign: 'center' }}>
+        <Card style={{ maxWidth: 500, textAlign: 'center', top: '56px', left: '27px', transform: 'rotate(47deg)' }}>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <GoogleOutlined style={{ fontSize: '64px', color: '#4285f4' }} />
             <Title level={2}>Welcome to Neon Beat</Title>
