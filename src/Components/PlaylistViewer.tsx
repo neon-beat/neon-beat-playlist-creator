@@ -347,15 +347,12 @@ Keep each field on a separate line. Be concise.`;
         });
 
         if (Object.keys(newFields).length > 0) {
-          // Auto-accept all fields without modal
+          // Auto-accept all fields without modal and overwrite all existing fields
           setItems(prevItems => prevItems.map(prevItem => {
             if (prevItem.id === item.id) {
               return {
                 ...prevItem,
-                fields: {
-                  ...prevItem.fields,
-                  ...newFields
-                }
+                fields: newFields // Replace all fields with AI-generated ones
               };
             }
             return prevItem;
