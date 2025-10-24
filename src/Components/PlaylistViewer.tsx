@@ -309,8 +309,8 @@ Keep each field on a separate line. Be concise.`;
         });
       }
 
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait 30 seconds between calls to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 30000));
     }
 
     setIsBatchProcessing(false);
