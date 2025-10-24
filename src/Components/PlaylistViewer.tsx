@@ -1,10 +1,10 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import useGoogleApi from '../Hooks/useGoogleApi';
 import MessageContext from '../Context/MessageContext';
 import { useAi } from '../Context/AiContext';
 import { Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Popconfirm, Spin } from 'antd';
-import { CheckOutlined, ClockCircleOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, PlusOutlined, RobotOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { CheckOutlined, ClockCircleOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, PlusOutlined, RobotOutlined, StarFilled, StarOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import './PlaylistViewer.css';
 import VideoPreview from './VideoPreview';
@@ -39,6 +39,9 @@ const PlaylistViewer: React.FC = () => {
   // Video preview modal state
   const [isVideoPreviewModalOpen, setIsVideoPreviewModalOpen] = useState<boolean>(false);
   const [selectedVideoItemId, setSelectedVideoItemId] = useState<string | null>(null);
+
+  // Import functionality
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isReady, getPlaylistItems } = useGoogleApi();
   const { apiKey, baseURL, model } = useAi();
@@ -555,6 +558,141 @@ Keep each field on a separate line. Be concise.`;
     messageApi.success('Playlist exported successfully!');
   };
 
+  const handleImportPlaylist = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file type
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      messageApi.error('Please select a JSON file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedData = JSON.parse(content);
+
+        // Validate the structure
+        if (!importedData.name || !Array.isArray(importedData.songs)) {
+          throw new Error('Invalid file format. Expected structure: { name: string, songs: array }');
+        }
+
+        // Convert imported data back to internal format
+        const convertedItems: any[] = [];
+
+        for (let i = 0; i < importedData.songs.length; i++) {
+          const song = importedData.songs[i];
+          
+          // Validate song structure
+          if (!song.url || typeof song.url !== 'string') {
+            messageApi.warning(`Skipping song ${i + 1}: Missing or invalid URL`);
+            continue;
+          }
+
+          // Extract video ID from YouTube URL
+          const videoId = extractVideoIdFromUrl(song.url);
+          if (!videoId) {
+            messageApi.warning(`Skipping song ${i + 1}: Invalid YouTube URL format`);
+            continue;
+          }
+
+          // Convert fields back to internal format
+          const fields: any = {};
+          
+          // Process point fields (mandatory)
+          if (Array.isArray(song.point_fields)) {
+            song.point_fields.forEach((field: any) => {
+              if (field.key && field.value !== undefined) {
+                fields[field.key] = {
+                  type: detectFieldType(field.key, field.key),
+                  label: field.key.charAt(0).toUpperCase() + field.key.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+                  value: field.value,
+                  bonus: false
+                };
+              }
+            });
+          }
+
+          // Process bonus fields
+          if (Array.isArray(song.bonus_fields)) {
+            song.bonus_fields.forEach((field: any) => {
+              if (field.key && field.value !== undefined) {
+                fields[field.key] = {
+                  type: detectFieldType(field.key, field.key),
+                  label: field.key.charAt(0).toUpperCase() + field.key.slice(1).replace(/([A-Z])/g, ' $1').trim(),
+                  value: field.value,
+                  bonus: true
+                };
+              }
+            });
+          }
+
+          // Create item object
+          const item = {
+            id: videoId,
+            title: fields.title?.value || `Imported Song ${i + 1}`,
+            thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+            fields: fields,
+            startTimeMs: song.starts_at_ms || 0,
+            endTimeMs: song.starts_at_ms + (song.guess_duration_ms || 30000)
+          };
+
+          convertedItems.push(item);
+        }
+
+        if (convertedItems.length === 0) {
+          messageApi.error('No valid songs found in the imported file.');
+          return;
+        }
+
+        // Update the playlist
+        setPlaylistTitle(importedData.name);
+        setItems(convertedItems);
+        
+        messageApi.success(`Successfully imported ${convertedItems.length} songs from "${importedData.name}"!`);
+
+      } catch (error: any) {
+        console.error('Import error:', error);
+        messageApi.error(`Failed to import playlist: ${error.message}`);
+      }
+    };
+
+    reader.onerror = () => {
+      messageApi.error('Failed to read the file.');
+    };
+
+    reader.readAsText(file);
+    
+    // Reset the file input so the same file can be selected again
+    event.target.value = '';
+  };
+
+  const extractVideoIdFromUrl = (url: string): string | null => {
+    try {
+      const urlObj = new URL(url);
+      
+      // Handle standard YouTube URLs
+      if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
+        return urlObj.searchParams.get('v');
+      }
+      
+      // Handle youtu.be URLs
+      if (urlObj.hostname === 'youtu.be') {
+        return urlObj.pathname.slice(1);
+      }
+      
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleSaveField = (itemId: string, fieldKey: string) => {
     setItems(items.map(item => {
       if (item.id === itemId && item.fields && item.fields[fieldKey]) {
@@ -792,6 +930,14 @@ Keep each field on a separate line. Be concise.`;
                   Get AI Info for All
                 </Button>
               )}
+              <Button
+                type="default"
+                icon={<UploadOutlined />}
+                onClick={handleImportPlaylist}
+                disabled={isBatchProcessing}
+              >
+                Import Playlist
+              </Button>
               <Button
                 type="primary"
                 icon={<DownloadOutlined />}
@@ -1051,6 +1197,15 @@ Keep each field on a separate line. Be concise.`;
           />
         )}
       </Modal>
+
+      {/* Hidden File Input for Import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        accept=".json"
+        style={{ display: 'none' }}
+      />
     </Spin>
   );
 };
