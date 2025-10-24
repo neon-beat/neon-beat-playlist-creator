@@ -25,6 +25,11 @@ const PlaylistViewer: React.FC = () => {
   const [newFieldIsBonus, setNewFieldIsBonus] = useState<boolean>(false);
   const [aiLoadingItemId, setAiLoadingItemId] = useState<string | null>(null);
 
+  // Batch AI processing state
+  const [isBatchProcessing, setIsBatchProcessing] = useState<boolean>(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [batchCancelRequested, setBatchCancelRequested] = useState<boolean>(false);
+
   // Field selection modal state
   const [isFieldSelectionModalOpen, setIsFieldSelectionModalOpen] = useState<boolean>(false);
   const [pendingFields, setPendingFields] = useState<any>({});
@@ -236,6 +241,166 @@ Keep each field on a separate line. Be concise.`;
     }
   };
 
+  const handleBatchAI = async () => {
+    if (!apiKey || !baseURL) {
+      messageApi.error('Please configure AI settings first in the AI Setup page.');
+      return;
+    }
+
+    if (items.length === 0) {
+      messageApi.info('No songs to process.');
+      return;
+    }
+
+    setIsBatchProcessing(true);
+    setBatchCancelRequested(false);
+    setBatchProgress({ current: 0, total: items.length });
+
+    const results = { success: [] as string[], failed: [] as { id: string; title: string; error: string }[] };
+
+    for (let i = 0; i < items.length; i++) {
+      if (batchCancelRequested) {
+        messageApi.info('Batch processing cancelled.');
+        break;
+      }
+
+      const item = items[i];
+      setBatchProgress({ current: i + 1, total: items.length });
+
+      try {
+        // Prepare the context from the item's fields
+        const itemInfo = Object.entries(item.fields || {})
+          .map(([key, field]: [string, any]) => `${field.label || key}: ${field.value}`)
+          .join('\n');
+
+        const prompt = `Based on the following information about a music video, please provide additional details that might be useful (such as genre, release year if not provided, album name, movie or video game it was used in, etc.).
+You can also correct the input information if you have strong evidence it is not correct. Try to match the original formatting as much as possible.
+Do not put "Notes" in the output fields, the target is to find information about the original song so do not hesitate to overwrite existing fields if you have better information.:
+
+${itemInfo}
+
+Please respond ONLY with key-value pairs in this exact format:
+Key: [value]
+
+Keep each field on a separate line. Be concise.`;
+
+        // Call OpenAI API
+        const response = await fetch(`${baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful assistant that provides structured information about music videos. Always respond with key-value pairs in the format "Key: Value" on separate lines. Be concise and only provide factual information.'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            temperature: 0.3,
+            max_tokens: 8000
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`AI request failed: ${response.statusText} - ${JSON.stringify(errorData)}`);
+        }
+
+        const data = await response.json();
+
+        // Check for incomplete response
+        const choice = data.choices?.[0];
+        if (!choice || !choice.message || !choice.message.content) {
+          throw new Error('Invalid AI response format');
+        }
+
+        const aiResponse = choice.message.content;
+
+        // Parse the AI response and add fields
+        const lines = aiResponse.split('\n').filter((line: string) => line.includes(':'));
+        const newFields: any = {};
+
+        lines.forEach((line: string) => {
+          const [label, ...valueParts] = line.split(':');
+          const value = valueParts.join(':').trim();
+          const key = labelToCamelCase(label.trim());
+
+          if (label && value) {
+            const fieldType = detectFieldType(key, label.trim());
+            newFields[key] = {
+              type: fieldType,
+              label: label.trim(),
+              value: fieldType === 'year' ? parseInt(value) || value : value,
+              bonus: false // All AI fields are mandatory
+            };
+          }
+        });
+
+        if (Object.keys(newFields).length > 0) {
+          // Auto-accept all fields without modal
+          setItems(prevItems => prevItems.map(prevItem => {
+            if (prevItem.id === item.id) {
+              return {
+                ...prevItem,
+                fields: {
+                  ...prevItem.fields,
+                  ...newFields
+                }
+              };
+            }
+            return prevItem;
+          }));
+
+          results.success.push(item.fields?.title?.value || item.title || `Song ${i + 1}`);
+        } else {
+          results.failed.push({
+            id: item.id,
+            title: item.fields?.title?.value || item.title || `Song ${i + 1}`,
+            error: 'No new information provided'
+          });
+        }
+
+      } catch (error: any) {
+        console.error(`AI request error for item ${item.id}:`, error);
+        results.failed.push({
+          id: item.id,
+          title: item.fields?.title?.value || item.title || `Song ${i + 1}`,
+          error: error.message
+        });
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    setIsBatchProcessing(false);
+    setBatchCancelRequested(false);
+
+    // Show summary
+    if (results.success.length > 0 && results.failed.length === 0) {
+      messageApi.success(`Successfully processed all ${results.success.length} songs with AI information!`);
+    } else if (results.success.length > 0 && results.failed.length > 0) {
+      messageApi.warning(`Processed ${results.success.length} songs successfully, ${results.failed.length} failed. Check console for details.`);
+    } else if (results.failed.length > 0) {
+      messageApi.error(`Failed to process all ${results.failed.length} songs. Check console for details.`);
+    }
+
+    if (results.failed.length > 0) {
+      console.log('Batch AI processing failures:', results.failed);
+    }
+  };
+
+  const handleCancelBatchAI = () => {
+    setBatchCancelRequested(true);
+  };
+
   const handleFieldSelectionOk = () => {
     if (!pendingItemId || selectedFieldKeys.length === 0) {
       messageApi.info('No fields were selected.');
@@ -421,7 +586,8 @@ Keep each field on a separate line. Be concise.`;
   const handleDeleteField = (itemId: string, fieldKey: string, fieldLabel: string) => {
     setItems(items.map(item => {
       if (item.id === itemId && item.fields) {
-        const { [fieldKey]: _, ...remainingFields } = item.fields;
+        const remainingFields = { ...item.fields };
+        delete remainingFields[fieldKey];
         return {
           ...item,
           fields: remainingFields
@@ -606,15 +772,46 @@ Keep each field on a separate line. Be concise.`;
                 }}
               />
             </Flex>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleExportPlaylist}
-              disabled={items.length === 0}
-            >
-              Export Playlist
-            </Button>
+            <Flex gap="small">
+              {isBatchProcessing ? (
+                <Button
+                  type="default"
+                  danger
+                  onClick={handleCancelBatchAI}
+                  disabled={batchCancelRequested}
+                >
+                  {batchCancelRequested ? 'Cancelling...' : 'Cancel AI Processing'}
+                </Button>
+              ) : (
+                <Button
+                  type="default"
+                  icon={<RobotOutlined />}
+                  onClick={handleBatchAI}
+                  disabled={items.length === 0 || !apiKey || !baseURL}
+                >
+                  Get AI Info for All
+                </Button>
+              )}
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                onClick={handleExportPlaylist}
+                disabled={items.length === 0 || isBatchProcessing}
+              >
+                Export Playlist
+              </Button>
+            </Flex>
           </Flex>
+        )}
+        {isBatchProcessing && (
+          <div className="mb-4 p-4 border border-solid border-blue-300 bg-blue-50 rounded">
+            <Flex align="center" gap="middle">
+              <Spin size="small" />
+              <span className="text-blue-700 font-medium">
+                Processing song {batchProgress.current} of {batchProgress.total}...
+              </span>
+            </Flex>
+          </div>
         )}
         <Flex vertical gap="middle" className="overflow-auto">
           {items.length === 0 && (
@@ -632,6 +829,7 @@ Keep each field on a separate line. Be concise.`;
                     icon={<RobotOutlined />}
                     size="small"
                     loading={aiLoadingItemId === item.id}
+                    disabled={isBatchProcessing}
                     onClick={() => handleAskAI(item)}
                     title="Ask AI for more information"
                   >
@@ -641,6 +839,7 @@ Keep each field on a separate line. Be concise.`;
                     type="primary"
                     icon={<PlusOutlined />}
                     size="small"
+                    disabled={isBatchProcessing}
                     onClick={() => {
                       setAddingFieldItemId(item.id);
                       setIsAddFieldModalOpen(true);
