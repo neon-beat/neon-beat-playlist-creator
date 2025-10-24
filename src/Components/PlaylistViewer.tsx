@@ -137,22 +137,14 @@ const PlaylistViewer: React.FC = () => {
     }
   };
 
-  const handleAskAI = async (item: any) => {
-    if (!apiKey || !baseURL) {
-      messageApi.error('Please configure AI settings first in the AI Setup page.');
-      return;
-    }
+  const fetchAIInfoForItem = async (item: any) => {
+    // Prepare the context from the item's fields
+    const itemInfo = Object.entries(item.fields || {})
+      .map(([key, field]: [string, any]) => `${field.label || key}: ${field.value}`)
+      .join('\n');
 
-    setAiLoadingItemId(item.id);
-
-    try {
-      // Prepare the context from the item's fields
-      const itemInfo = Object.entries(item.fields || {})
-        .map(([key, field]: [string, any]) => `${field.label || key}: ${field.value}`)
-        .join('\n');
-
-      const prompt = `Based on the following information about a music video, please provide additional details that might be useful (such as genre, release year if not provided, album name, movie or video game it was used in, etc.).
-You can also correct the input information if you have strong evidence it is not correct. Try to match the original formatting as much as possible.
+    const prompt = `Based on the following information about a music video, please provide additional details that might be useful (such as genre, release year if not provided, album name, movie or video game it was used in, etc.).
+Replace data received in input by data collected on the internet for this song. Try to match the original formatting as much as possible.
 Do not put "Notes" in the output fields, the target is to find information about the original song so do not hesitate to overwrite existing fields if you have better information.:
 
 ${itemInfo}
@@ -162,69 +154,83 @@ Key: [value]
 
 Keep each field on a separate line. Be concise.`;
 
-      // Call OpenAI API
-      const response = await fetch(`${baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a helpful assistant that provides structured information about music videos. Always respond with key-value pairs in the format "Key: Value" on separate lines. Be concise and only provide factual information.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 8000
-        })
-      });
+    // Call OpenAI API
+    const response = await fetch(`${baseURL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that provides structured information about music videos. Always respond with key-value pairs in the format "Key: Value" on separate lines. Be concise and only provide factual information.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 8000
+      })
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`AI request failed: ${response.statusText} - ${JSON.stringify(errorData)}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`AI request failed: ${response.statusText} - ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+
+    // Check for incomplete response
+    const choice = data.choices?.[0];
+    if (!choice || !choice.message || !choice.message.content) {
+      throw new Error('Invalid AI response format');
+    }
+
+    const finishReason = choice.finish_reason;
+    if (finishReason === 'length') {
+      messageApi.warning('AI response was cut off. Try asking again or increase max_tokens.');
+    }
+
+    const aiResponse = choice.message.content;
+
+    // Parse the AI response and add fields
+    const lines = aiResponse.split('\n').filter((line: string) => line.includes(':'));
+    const newFields: any = {};
+
+    lines.forEach((line: string) => {
+      const [label, ...valueParts] = line.split(':');
+      const value = valueParts.join(':').trim();
+      const key = labelToCamelCase(label.trim());
+
+      if (label && value) {
+        const fieldType = detectFieldType(key, label.trim());
+        newFields[key] = {
+          type: fieldType,
+          label: label.trim(),
+          value: fieldType === 'year' ? parseInt(value) || value : value,
+          bonus: false // All AI fields are mandatory
+        };
       }
+    });
 
-      const data = await response.json();
+    return newFields;
+  };
 
-      // Check for incomplete response
-      const choice = data.choices?.[0];
-      if (!choice || !choice.message || !choice.message.content) {
-        throw new Error('Invalid AI response format');
-      }
+  const handleAskAI = async (item: any) => {
+    if (!apiKey || !baseURL) {
+      messageApi.error('Please configure AI settings first in the AI Setup page.');
+      return;
+    }
 
-      const finishReason = choice.finish_reason;
-      if (finishReason === 'length') {
-        messageApi.warning('AI response was cut off. Try asking again or increase max_tokens.');
-      }
+    setAiLoadingItemId(item.id);
 
-      const aiResponse = choice.message.content;
-
-      // Parse the AI response and add fields
-      const lines = aiResponse.split('\n').filter((line: string) => line.includes(':'));
-      const newFields: any = {};
-
-      lines.forEach((line: string) => {
-        const [label, ...valueParts] = line.split(':');
-        const value = valueParts.join(':').trim();
-        const key = labelToCamelCase(label.trim());
-
-        if (label && value) {
-          const fieldType = detectFieldType(key, label.trim());
-          newFields[key] = {
-            type: fieldType,
-            label: label.trim(),
-            value: fieldType === 'year' ? parseInt(value) || value : value,
-            bonus: false // All AI fields are mandatory
-          };
-        }
-      });
+    try {
+      const newFields = await fetchAIInfoForItem(item);
 
       if (Object.keys(newFields).length > 0) {
         // Open modal for user to select fields
@@ -271,80 +277,7 @@ Keep each field on a separate line. Be concise.`;
       setBatchProgress({ current: i + 1, total: items.length });
 
       try {
-        // Prepare the context from the item's fields
-        const itemInfo = Object.entries(item.fields || {})
-          .map(([key, field]: [string, any]) => `${field.label || key}: ${field.value}`)
-          .join('\n');
-
-        const prompt = `Based on the following information about a music video, please provide additional details that might be useful (such as genre, release year if not provided, album name, movie or video game it was used in, etc.).
-You can also correct the input information if you have strong evidence it is not correct. Try to match the original formatting as much as possible.
-Do not put "Notes" in the output fields, the target is to find information about the original song so do not hesitate to overwrite existing fields if you have better information.:
-
-${itemInfo}
-
-Please respond ONLY with key-value pairs in this exact format:
-Key: [value]
-
-Keep each field on a separate line. Be concise.`;
-
-        // Call OpenAI API
-        const response = await fetch(`${baseURL}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a helpful assistant that provides structured information about music videos. Always respond with key-value pairs in the format "Key: Value" on separate lines. Be concise and only provide factual information.'
-              },
-              {
-                role: 'user',
-                content: prompt
-              }
-            ],
-            temperature: 0.3,
-            max_tokens: 8000
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`AI request failed: ${response.statusText} - ${JSON.stringify(errorData)}`);
-        }
-
-        const data = await response.json();
-
-        // Check for incomplete response
-        const choice = data.choices?.[0];
-        if (!choice || !choice.message || !choice.message.content) {
-          throw new Error('Invalid AI response format');
-        }
-
-        const aiResponse = choice.message.content;
-
-        // Parse the AI response and add fields
-        const lines = aiResponse.split('\n').filter((line: string) => line.includes(':'));
-        const newFields: any = {};
-
-        lines.forEach((line: string) => {
-          const [label, ...valueParts] = line.split(':');
-          const value = valueParts.join(':').trim();
-          const key = labelToCamelCase(label.trim());
-
-          if (label && value) {
-            const fieldType = detectFieldType(key, label.trim());
-            newFields[key] = {
-              type: fieldType,
-              label: label.trim(),
-              value: fieldType === 'year' ? parseInt(value) || value : value,
-              bonus: false // All AI fields are mandatory
-            };
-          }
-        });
+        const newFields = await fetchAIInfoForItem(item);
 
         if (Object.keys(newFields).length > 0) {
           // Auto-accept all fields without modal and overwrite all existing fields
@@ -585,7 +518,7 @@ Keep each field on a separate line. Be concise.`;
 
         for (let i = 0; i < importedData.songs.length; i++) {
           const song = importedData.songs[i];
-          
+
           // Validate song structure
           if (!song.url || typeof song.url !== 'string') {
             messageApi.warning(`Skipping song ${i + 1}: Missing or invalid URL`);
@@ -601,7 +534,7 @@ Keep each field on a separate line. Be concise.`;
 
           // Convert fields back to internal format
           const fields: any = {};
-          
+
           // Process point fields (mandatory)
           if (Array.isArray(song.point_fields)) {
             song.point_fields.forEach((field: any) => {
@@ -651,7 +584,7 @@ Keep each field on a separate line. Be concise.`;
         // Update the playlist
         setPlaylistTitle(importedData.name);
         setItems(convertedItems);
-        
+
         messageApi.success(`Successfully imported ${convertedItems.length} songs from "${importedData.name}"!`);
 
       } catch (error: any) {
@@ -665,7 +598,7 @@ Keep each field on a separate line. Be concise.`;
     };
 
     reader.readAsText(file);
-    
+
     // Reset the file input so the same file can be selected again
     event.target.value = '';
   };
@@ -673,17 +606,17 @@ Keep each field on a separate line. Be concise.`;
   const extractVideoIdFromUrl = (url: string): string | null => {
     try {
       const urlObj = new URL(url);
-      
+
       // Handle standard YouTube URLs
       if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
         return urlObj.searchParams.get('v');
       }
-      
+
       // Handle youtu.be URLs
       if (urlObj.hostname === 'youtu.be') {
         return urlObj.pathname.slice(1);
       }
-      
+
       return null;
     } catch {
       return null;
