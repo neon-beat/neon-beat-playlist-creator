@@ -50,7 +50,7 @@ VITE_GOOGLE_API_KEY=your_google_api_key_here
 4. Create credentials:
    - **API Key**: For public API access
    - **OAuth 2.0 Client ID**: For user authentication
-5. Add authorized JavaScript origins:
+5. Add authorized redirect uris:
    - `http://localhost:5173` (for local development)
    - `https://neon-beat.github.io` (for production)
 
