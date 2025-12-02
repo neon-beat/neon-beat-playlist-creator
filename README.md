@@ -40,6 +40,7 @@ Create a `.env` file in the root directory:
 ```env
 VITE_GOOGLE_API_CLIENT_ID=your_google_client_id_here
 VITE_GOOGLE_API_KEY=your_google_api_key_here
+VITE_GOOGLE_REDIRECT_URI="http://localhost:5173"
 ```
 
 **How to get Google API credentials:**
