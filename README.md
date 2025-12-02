@@ -40,6 +40,7 @@ Create a `.env` file in the root directory:
 ```env
 VITE_GOOGLE_API_CLIENT_ID=your_google_client_id_here
 VITE_GOOGLE_API_KEY=your_google_api_key_here
+VITE_GOOGLE_REDIRECT_URI="http://localhost:5173"
 ```
 
 **How to get Google API credentials:**
@@ -50,11 +51,23 @@ VITE_GOOGLE_API_KEY=your_google_api_key_here
 4. Create credentials:
    - **API Key**: For public API access
    - **OAuth 2.0 Client ID**: For user authentication
-5. Add authorized JavaScript origins:
+5. Add authorized redirect uris:
    - `http://localhost:5173` (for local development)
    - `https://neon-beat.github.io` (for production)
 
-### 4. Start Development Server
+### 4. Allow selected users to allow the local app to access Google account
+
+When deploying a local instance of NBPC, you will fail to allow your
+instance to access your Google account, because the app is not officially
+published. You then have to explicitely "invite" your user account as a
+"test user" through the Google Console. To do that:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Go to "API and Services"
+3. On the left column, go to "OAuth consent screen"
+4. On the left column, go to "Audience"
+5. Under the "Tests users", click on "Add user", and add your email address
+
+### 5. Start Development Server
 
 ```bash
 npm run dev
